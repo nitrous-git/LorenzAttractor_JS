@@ -23,7 +23,7 @@ document.body.appendChild(renderer.domElement);
 
 const y0 = [1.0, 0.0, 0.0]
 
-const a = 0.01;   // 0.001 0.01, 0.4
+const a = 0.01;   // 0.001 0.01, 0.4 are pretty cool !!
 const b = 8/3;
 const c = 28;
 
