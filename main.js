@@ -31,7 +31,7 @@ const e = 0.25;
 const f = 0.1;
 
 const dt = 0.01;
-const T = 300; // integrate from O to 40
+const T = 600; // integrate from O to 40
 const N = Math.floor(T / dt);
 
 function RK4(fun, dt, t0, y0) {
@@ -112,7 +112,7 @@ const uniforms = {
     //u_base:  { value: new THREE.Color(0xffcc66) },
     u_glow:  { value: new THREE.Color(0xffffff) },
     u_intensity: { value: 1.8 }, // glow strength
-    u_trail: { value: 0.95 }, // keep last 70% visible
+    u_trail: { value: 1.0 }, // keep last 70% visible
     u_paletteShift: { value: 0.0 }
 };
 
