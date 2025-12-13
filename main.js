@@ -8,7 +8,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 
 const camera = new THREE.PerspectiveCamera(75, w / h, 0.1, 1000);
-camera.position.set(0, 45, 80);
+camera.position.set(0, 0, 5);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(w, h);
@@ -21,14 +21,14 @@ document.body.appendChild(renderer.domElement);
 // Lorenz attractor
 // ------------------------------------------------------------
 
-const y0 = [-8, 8, 27]
+const y0 = [1.0, 0.0, 0.0]
 
-const a = 10;
+const a = 0.01;   // 0.001 0.01, 0.4
 const b = 8/3;
 const c = 28;
 
 const dt = 0.01;
-const T = 200; // integrate from O to 40
+const T = 300; // integrate from O to 40
 const N = Math.floor(T / dt);
 
 function RK4(fun, dt, t0, y0) {
@@ -56,9 +56,9 @@ function RK4(fun, dt, t0, y0) {
 
 function lorenz(t, state) {
     const x = state[0], y = state[1], z = state[2];
-    const dx = a * (y - x);
-    const dy = x * (c - z) - y;
-    const dz = x * y - b * z;
+    const dx = y + z;
+    const dy = -x + a*y;
+    const dz = x**2 - z;
     return [dx, dy, dz];
 }
 
@@ -67,7 +67,7 @@ function lorenz(t, state) {
 let state = [y0[0], y0[1], y0[2]]; // initial condition
 let t = 0;
 
-const scale = 1.8;
+const scale = 3;
 const trajectory_points = []; // points
 //trajectory_points.push(new THREE.Vector3(state[0], state[1], state[2]));
 trajectory_points.push(new THREE.Vector3(state[0], state[2], state[1]).multiplyScalar(scale));
@@ -109,7 +109,7 @@ const uniforms = {
     //u_base:  { value: new THREE.Color(0xffcc66) },
     u_glow:  { value: new THREE.Color(0xffffff) },
     u_intensity: { value: 1.8 }, // glow strength
-    u_trail: { value: 0.70 }, // keep last 70% visible
+    u_trail: { value: 0.95 }, // keep last 70% visible
     u_paletteShift: { value: 0.0 }
 };
 
