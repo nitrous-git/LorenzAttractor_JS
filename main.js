@@ -101,7 +101,6 @@ const mat = new THREE.LineBasicMaterial({ color: 0xffcc66 });
 const line = new THREE.Line(geom, mat);
 scene.add(line);
 
-
 // Animation
 // ------------------------------------------------------------
 let drawCount = 2;
