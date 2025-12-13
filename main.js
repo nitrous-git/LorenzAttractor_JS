@@ -8,7 +8,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 
 const camera = new THREE.PerspectiveCamera(75, w / h, 0.1, 1000);
-camera.position.set(0, 0, 5);
+camera.position.set(0, 3, 10);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(w, h);
@@ -21,11 +21,14 @@ document.body.appendChild(renderer.domElement);
 // Lorenz attractor
 // ------------------------------------------------------------
 
-const y0 = [1.0, 0.0, 0.0]
+const y0 = [0.1, 0.1, 0.1]
 
-const a = 0.01;   // 0.001 0.01, 0.4 are pretty cool !!
-const b = 8/3;
-const c = 28;
+const a = 0.95;   // 0.001 0.01, 0.4 are pretty cool !!
+const b = 0.7;
+const c = 0.6;
+const d = 3.5;
+const e = 0.25;
+const f = 0.1;
 
 const dt = 0.01;
 const T = 300; // integrate from O to 40
@@ -56,9 +59,9 @@ function RK4(fun, dt, t0, y0) {
 
 function lorenz(t, state) {
     const x = state[0], y = state[1], z = state[2];
-    const dx = y + z;
-    const dy = -x + a*y;
-    const dz = x**2 - z;
+    const dx = (z-b)*x - d*y;
+    const dy = d*x + (z-b)*y;
+    const dz = c + a*z - (z**3)/3 - (x**2 + y**2)*(1 + e*z) + f*z*(x**3);
     return [dx, dy, dz];
 }
 
@@ -144,11 +147,39 @@ const frag = `
       vec3 d = vec3(0.00, 0.20, 0.40);
       return a + b * cos(6.2831853 * (c * t + d));
   }
+  
+  vec3 paletteSynthwave(float t) {
+      // Neon synthwave: magenta/purple/blue/cyan with high saturation
+      // Mix of 3 keyed ramps to avoid “muddy” midtones.
+      t = fract(t);
+    
+      vec3 magenta = vec3(1.00, 0.12, 0.78);
+      vec3 purple  = vec3(0.62, 0.18, 1.00);
+      vec3 blue    = vec3(0.10, 0.45, 1.00);
+      vec3 cyan    = vec3(0.00, 1.00, 0.95);
+    
+      // Segment blends (smooth, continuous)
+      float s0 = smoothstep(0.00, 0.35, t); // magenta -> purple
+      vec3 c0 = mix(magenta, purple, s0);
+    
+      float s1 = smoothstep(0.25, 0.65, t); // purple -> blue
+      vec3 c1 = mix(purple, blue, s1);
+    
+      float s2 = smoothstep(0.55, 1.00, t); // blue -> cyan
+      vec3 c2 = mix(blue, cyan, s2);
+    
+      // Combine ramps so we keep punchy neon throughout
+      vec3 col = (c0 + c1 + c2) / 3.0;
+    
+      // Add a subtle “neon lift” (push brights, keep blacks)
+      col = pow(col, vec3(0.85)); // slightly brighter mid/highs
+      return col;
+  }
     
   void main() {
       // Base color changes along the line
       float tcol = fract(v_t + u_paletteShift);
-      vec3 base = palette(tcol);
+      vec3 base = paletteSynthwave(tcol);
     
       // Head glow
       float d = abs(v_t - u_headT);
