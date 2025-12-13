@@ -21,9 +21,9 @@ document.body.appendChild(renderer.domElement);
 // Lorenz attractor
 // ------------------------------------------------------------
 
-const y0 = [0.1, 0.1, 0.1]
+const y0 = [0.1, 0.0, 0.0]  // or [0.1, 0.1, 0.1]  is cool !!
 
-const a = 0.95;   // 0.001 0.01, 0.4 are pretty cool !!
+const a = 0.95;
 const b = 0.7;
 const c = 0.6;
 const d = 3.5;
