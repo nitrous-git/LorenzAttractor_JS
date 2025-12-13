@@ -28,7 +28,7 @@ const b = 8/3;
 const c = 28;
 
 const dt = 0.01;
-const T = 80; // integrate from O to 40
+const T = 200; // integrate from O to 40
 const N = Math.floor(T / dt);
 
 function RK4(fun, dt, t0, y0) {
@@ -106,10 +106,11 @@ geom.setDrawRange(0, 2); // start small
 const uniforms = {
     u_headT: { value: 0.0 },      // where the currently drawn head is (0..1)
     u_band:  { value: 0.005 },     // glowing segment length (0.001 to 0.005 is good)
-    u_base:  { value: new THREE.Color(0xffcc66) },
+    //u_base:  { value: new THREE.Color(0xffcc66) },
     u_glow:  { value: new THREE.Color(0xffffff) },
     u_intensity: { value: 1.8 }, // glow strength
-    u_trail: { value: 0.70 } // keep last 70% visible
+    u_trail: { value: 0.70 }, // keep last 70% visible
+    u_paletteShift: { value: 0.0 }
 };
 
 const vert = `
@@ -131,23 +132,36 @@ const frag = `
   uniform vec3  u_glow;
   uniform float u_intensity;
   uniform float u_trail;
+  uniform float u_paletteShift;
 
   varying float v_t;
 
-  void main() {
-    // distance to the head, in [0..1]
-    float d = abs(v_t - u_headT);
-
-    // soft glow bump (Gaussian-ish)
-    float glow = exp(-(d*d) / max(1e-6, u_band*u_band));
-
-    float age  = u_headT - v_t;                 // older points have larger age
-    float fade = smoothstep(u_trail, 0.0, age); // 1 near head -> 0 far behind
-
-    vec3 col = (u_base * fade) + (u_glow * glow * u_intensity);
-    float alpha = max(fade, glow);
+  // Inigo Quilez-style cosine palette
+  vec3 palette(float t) {
+      vec3 a = vec3(0.10, 0.08, 0.18);
+      vec3 b = vec3(0.90, 0.55, 0.35);
+      vec3 c = vec3(1.00, 1.00, 1.00);
+      vec3 d = vec3(0.00, 0.20, 0.40);
+      return a + b * cos(6.2831853 * (c * t + d));
+  }
     
-    gl_FragColor = vec4(col, alpha);
+  void main() {
+      // Base color changes along the line
+      float tcol = fract(v_t + u_paletteShift);
+      vec3 base = palette(tcol);
+    
+      // Head glow
+      float d = abs(v_t - u_headT);
+      float glow = exp(-(d*d) / max(1e-6, u_band*u_band));
+    
+      // Trail fade to black behind the head
+      float age  = u_headT - v_t;                  // 0 at head, increases behind it
+      float fade = smoothstep(u_trail, 0.0, age);  // 1 near head -> 0 far behind
+    
+      vec3 col = base * fade + u_glow * glow * u_intensity;
+      float alpha = max(fade, glow);
+    
+      gl_FragColor = vec4(col, alpha);
   }
 `;
 
@@ -183,7 +197,7 @@ function animate(t) {
 
     // head index is drawCount-1
     uniforms.u_headT.value = (drawCount - 1) / (trajectory_points.length - 1);
-
+    uniforms.u_paletteShift.value = performance.now() * 0.001 * 0.05;
 
     renderer.render(scene, camera);
 }
