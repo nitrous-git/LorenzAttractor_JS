@@ -9,7 +9,8 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000000);
 
 const camera = new THREE.PerspectiveCamera(75, w / h, 0.1, 1000);
-camera.position.set(0, 3, 10);
+camera.position.set(0, 45, 80);
+camera.lookAt(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(w, h);
@@ -56,6 +57,9 @@ const ATTRACTORS = {
         T: 600,
         scale: 3,
 
+        cameraPosition: [0, 3, 10],
+        cameraLookAt: [0, 2, 0],
+
         ode: function aizawa(t, state) {
             const x = state[0];
             const y = state[1];
@@ -83,23 +87,26 @@ const ATTRACTORS = {
 
     Lorenz: {
         name: "Lorenz",
-        initial: [0.1, 0.0, 0.0],
-        dt: 0.005,
-        T: 80,
-        scale: 0.25,
+        initial: [-8, 8, 27],
+        dt: 0.001,
+        T: 200,
+        scale: 1.8,
+
+        cameraPosition: [0, 45, 80],
+        cameraLookAt: [0, 45, 0],
 
         ode: function lorenz(t, state) {
             const x = state[0];
             const y = state[1];
             const z = state[2];
 
-            const sigma = 10;
-            const rho = 28;
-            const beta = 8 / 3;
+            const a = 10;
+            const b = 8 / 3;
+            const c = 28;
 
-            const dx = sigma * (y - x);
-            const dy = x * (rho - z) - y;
-            const dz = x * y - beta * z;
+            const dx = a * (y - x);
+            const dy = x * (c - z) - y;
+            const dz = x * y - b * z;
 
             return [dx, dy, dz];
         },
@@ -109,8 +116,11 @@ const ATTRACTORS = {
         name: "Rossler",
         initial: [0.1, 0.0, 0.0],
         dt: 0.01,
-        T: 500,
-        scale: 2.5,
+        T: 1000,
+        scale: 1.6,
+
+        cameraPosition: [0, 15, 45],
+        cameraLookAt: [0, 8, 0],
 
         ode: function rossler(t, state) {
             const x = state[0];
@@ -128,6 +138,111 @@ const ATTRACTORS = {
             return [dx, dy, dz];
         },
     },
+
+    Thomas: {
+        label: "Thomas",
+        initial: [1.0, 0.0, -1.0],
+        dt: 0.01,
+        T: 1800,
+        scale: 12.0,
+
+        cameraPosition: [45, 45, 45],
+        cameraLookAt: [0, 0, 0],
+
+        ode: function thomas(t, state) {
+            const x = state[0];
+            const y = state[1];
+            const z = state[2];
+
+            const b = 0.208186;
+
+            const dx = Math.sin(y) - b * x;
+            const dy = Math.sin(z) - b * y;
+            const dz = Math.sin(x) - b * z;
+
+            return [dx, dy, dz];
+        },
+    },
+
+    Halvorsen: {
+        label: "Halvorsen",
+        initial: [0.1, 0.0, 0.0],
+        dt: 0.005,
+        T: 250,
+        scale: 5.0,
+
+        cameraPosition: [45, 45, 45],
+        cameraLookAt: [0, 0, 0],
+
+        ode: function halvorsen(t, state) {
+            const x = state[0];
+            const y = state[1];
+            const z = state[2];
+
+            const a = 1.4;
+
+            const dx = -a * x - 4 * y - 4 * z - y * y;
+            const dy = -a * y - 4 * z - 4 * x - z * z;
+            const dz = -a * z - 4 * x - 4 * y - x * x;
+
+            return [dx, dy, dz];
+        },
+    },
+
+    Dadras: {
+        label: "Dadras",
+        initial: [1.0, 1.0, 1.0],
+        dt: 0.005,
+        T: 900,
+        scale: 2.0,
+
+        cameraPosition: [60, 45, 25],
+        cameraLookAt: [2, 5, 0],
+
+        ode: function dadras(t, state) {
+            const x = state[0];
+            const y = state[1];
+            const z = state[2];
+
+            const a = 2.6;
+            const b = 2.7;
+            const c = 2.8;
+            const d = 3.0;
+            const e = 7.4;
+
+            const dx = y - a * x + b * y * z;
+            const dy = c * y - x * z + z;
+            const dz = d * x * y - e * z;
+
+            return [dx, dy, dz];
+        },
+    },
+
+    Misc_01: {
+        name: "Misc_01",
+        initial: [1.0, 0.0, 0.0],
+        dt: 0.01,
+        T: 300,
+        scale: 3,
+
+        cameraPosition: [0, 0, 5],
+        cameraLookAt: [0, 0, 0],
+
+        ode: function misc01(t, state) {
+            const x = state[0];
+            const y = state[1];
+            const z = state[2];
+
+            const a = 0.01;   // 0.001 0.01, 0.4 are pretty cool !!
+
+            const dx = y + z;
+            const dy = -x + a*y;
+            const dz = x**2 - z;
+
+            return [dx, dy, dz];
+        },
+    },
+
 };
 
 // UI / runtime settings
@@ -144,9 +259,9 @@ const settings = {
     T: 600,
     scale: 3,
 
-    pointsPerSecond: 0.8,
+    pointsPerSecond: 3.0,
 
-    trail: 1.0,
+    trail: 0.7,
     band: 0.005,
     intensity: 1.8,
 
@@ -155,11 +270,6 @@ const settings = {
     }
 };
 
-
-/*const geom = new THREE.BufferGeometry();
-geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-geom.setAttribute("a_t", new THREE.BufferAttribute(tvals, 1));
-geom.setDrawRange(0, 2); // start small*/
 
 // Geometry and trajectory state
 // -----------------------------------------------------------
@@ -244,7 +354,7 @@ const frag = `
   void main() {
       // Base color changes along the line
       float tcol = fract(v_t + u_paletteShift);
-      vec3 base = paletteSynthwave(tcol);
+      vec3 base = palette(tcol);
     
       // Head glow
       float d = abs(v_t - u_headT);
@@ -287,8 +397,7 @@ function computeTrajectory() {
     let state = [settings.x0, settings.y0, settings.z0];
     let t = 0;
 
-    //const trajectory_points= [];
-
+    trajectory_points = [];
     trajectory_points.push( new THREE.Vector3(state[0], state[2], state[1]).multiplyScalar(scale) );
 
     for (let i = 0; i < N; i++) {
@@ -349,6 +458,8 @@ function restartSimulation() {
 function applyPreset(name) {
     const def = ATTRACTORS[name];
 
+    settings.attractor = name;
+
     settings.x0 = def.initial[0];
     settings.y0 = def.initial[1];
     settings.z0 = def.initial[2];
@@ -357,8 +468,24 @@ function applyPreset(name) {
     settings.T = def.T;
     settings.scale = def.scale;
 
+    applyCameraPreset(def);
+
     rebuildTrajectory();
     updateGuiDisplay();
+}
+
+function applyCameraPreset(def) {
+    camera.position.set(
+        def.cameraPosition[0],
+        def.cameraPosition[1],
+        def.cameraPosition[2]
+    );
+
+    camera.lookAt(
+        def.cameraLookAt[0],
+        def.cameraLookAt[1],
+        def.cameraLookAt[2]
+    );
 }
 
 // GUI
@@ -516,6 +643,7 @@ window.addEventListener("resize", function () {
 // ------------------------------------------------------------
 
 setupGUI();
+applyCameraPreset(ATTRACTORS[settings.attractor]);
 rebuildTrajectory();
 requestAnimationFrame(animate);
 
