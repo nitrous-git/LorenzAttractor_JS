@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import GUI from "lil-gui";
 
 // Basic three.js setup
 // ------------------------------------------------------------
@@ -18,21 +19,8 @@ document.body.appendChild(renderer.domElement);
 // axis helper
 //scene.add(new THREE.AxesHelper(20));
 
-// Lorenz attractor
+// RK4 integrator
 // ------------------------------------------------------------
-
-const y0 = [0.1, 0.0, 0.0]  // or [0.1, 0.1, 0.1]  is cool !!
-
-const a = 0.95;
-const b = 0.7;
-const c = 0.6;
-const d = 3.5;
-const e = 0.25;
-const f = 0.1;
-
-const dt = 0.01;
-const T = 600; // integrate from O to 40
-const N = Math.floor(T / dt);
 
 function RK4(fun, dt, t0, y0) {
     const c1 = fun(t0, y0);
@@ -57,59 +45,137 @@ function RK4(fun, dt, t0, y0) {
             y0[2] + (dt / 6) * (c1[2] + 2 * c2[2] + 2 * c3[2] + c4[2])];
 }
 
-function lorenz(t, state) {
-    const x = state[0], y = state[1], z = state[2];
-    const dx = (z-b)*x - d*y;
-    const dy = d*x + (z-b)*y;
-    const dz = c + a*z - (z**3)/3 - (x**2 + y**2)*(1 + e*z) + f*z*(x**3);
-    return [dx, dy, dz];
-}
-
-// Compute trajectory
+// Attractor presets
 // ------------------------------------------------------------
-let state = [y0[0], y0[1], y0[2]]; // initial condition
-let t = 0;
 
-const scale = 3;
-const trajectory_points = []; // points
-//trajectory_points.push(new THREE.Vector3(state[0], state[1], state[2]));
-trajectory_points.push(new THREE.Vector3(state[0], state[2], state[1]).multiplyScalar(scale));
+const ATTRACTORS = {
+    Aizawa: {
+        name: "Aizawa",
+        initial: [0.1, 0.0, 0.0],
+        dt: 0.01,
+        T: 600,
+        scale: 3,
 
-for (let i = 0; i < N; i++) {
-    state = RK4(lorenz, dt, t, state);
-    t += dt;
+        ode: function aizawa(t, state) {
+            const x = state[0];
+            const y = state[1];
+            const z = state[2];
 
-    //const p = new THREE.Vector3(state[0], state[1], state[2]);
-    const p = new THREE.Vector3(state[0], state[2], state[1]).multiplyScalar(scale);
-    trajectory_points.push(p);
-}
+            const a = 0.95;
+            const b = 0.7;
+            const c = 0.6;
+            const d = 3.5;
+            const e = 0.25;
+            const f = 0.1;
 
-// Convert points to flat array Float32Array for BufferGeometry
+            const dx = (z - b) * x - d * y;
+            const dy = d * x + (z - b) * y;
+            const dz =
+                c +
+                a * z -
+                (z ** 3) / 3 -
+                (x ** 2 + y ** 2) * (1 + e * z) +
+                f * z * (x ** 3);
+
+            return [dx, dy, dz];
+        },
+    },
+
+    Lorenz: {
+        name: "Lorenz",
+        initial: [0.1, 0.0, 0.0],
+        dt: 0.005,
+        T: 80,
+        scale: 0.25,
+
+        ode: function lorenz(t, state) {
+            const x = state[0];
+            const y = state[1];
+            const z = state[2];
+
+            const sigma = 10;
+            const rho = 28;
+            const beta = 8 / 3;
+
+            const dx = sigma * (y - x);
+            const dy = x * (rho - z) - y;
+            const dz = x * y - beta * z;
+
+            return [dx, dy, dz];
+        },
+    },
+
+    Rossler: {
+        name: "Rossler",
+        initial: [0.1, 0.0, 0.0],
+        dt: 0.01,
+        T: 500,
+        scale: 2.5,
+
+        ode: function rossler(t, state) {
+            const x = state[0];
+            const y = state[1];
+            const z = state[2];
+
+            const a = 0.2;
+            const b = 0.2;
+            const c = 5.7;
+
+            const dx = -y - z;
+            const dy = x + a * y;
+            const dz = b + z * (x - c);
+
+            return [dx, dy, dz];
+        },
+    },
+};
+
+// UI / runtime settings
 // ------------------------------------------------------------
-const positions = new Float32Array(trajectory_points.length * 3);
-const tvals = new Float32Array(trajectory_points.length); // per vertex attribute, normalized to 0..1 along trajectory
 
-for (let i = 0; i < trajectory_points.length; i++) {
-    const p = trajectory_points[i];
-    const index = i * 3;
+const settings = {
+    attractor: "Aizawa",
 
-    positions[index + 0] = p.x;
-    positions[index + 1] = p.y;
-    positions[index + 2] = p.z;
+    x0: 0.1,
+    y0: 0.0,
+    z0: 0.0,
 
-    // t-space is 0 to 1
-    tvals[i] = i / (trajectory_points.length - 1);
-}
+    dt: 0.01,
+    T: 600,
+    scale: 3,
 
-const geom = new THREE.BufferGeometry();
+    pointsPerSecond: 0.8,
+
+    trail: 1.0,
+    band: 0.005,
+    intensity: 1.8,
+
+    restart: function () {
+        restartSimulation();
+    }
+};
+
+
+/*const geom = new THREE.BufferGeometry();
 geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
 geom.setAttribute("a_t", new THREE.BufferAttribute(tvals, 1));
-geom.setDrawRange(0, 2); // start small
+geom.setDrawRange(0, 2); // start small*/
+
+// Geometry and trajectory state
+// -----------------------------------------------------------
+let trajectory_points = [];
+let drawCount = 2;
+let revealStartTime = performance.now();
+
+const geom = new THREE.BufferGeometry();
+geom.setDrawRange(0, 2);
+
+// Shader
+// ------------------------------------------------------------
 
 const uniforms = {
     u_headT: { value: 0.0 },      // where the currently drawn head is (0..1)
     u_band:  { value: 0.005 },     // glowing segment length (0.001 to 0.005 is good)
-    //u_base:  { value: new THREE.Color(0xffcc66) },
     u_glow:  { value: new THREE.Color(0xffffff) },
     u_intensity: { value: 1.8 }, // glow strength
     u_trail: { value: 1.0 }, // keep last 70% visible
@@ -131,7 +197,6 @@ const frag = `
 
   uniform float u_headT;
   uniform float u_band;
-  uniform vec3  u_base;
   uniform vec3  u_glow;
   uniform float u_intensity;
   uniform float u_trail;
@@ -197,7 +262,7 @@ const frag = `
 `;
 
 const mat = new THREE.ShaderMaterial({
-    uniforms,
+    uniforms : uniforms,
     vertexShader: vert,
     fragmentShader: frag,
     transparent: true,
@@ -208,22 +273,225 @@ const mat = new THREE.ShaderMaterial({
 const line = new THREE.Line(geom, mat);
 scene.add(line);
 
+// Trajectory generation
+// ------------------------------------------------------------
+
+function computeTrajectory() {
+    const def = ATTRACTORS[settings.attractor];
+
+    const dt = settings.dt;
+    const T = settings.T;
+    const N = Math.floor(T / dt);
+    const scale = settings.scale;
+
+    let state = [settings.x0, settings.y0, settings.z0];
+    let t = 0;
+
+    //const trajectory_points= [];
+
+    trajectory_points.push( new THREE.Vector3(state[0], state[2], state[1]).multiplyScalar(scale) );
+
+    for (let i = 0; i < N; i++) {
+        state = RK4(def.ode, dt, t, state);
+        t += dt;
+
+        const p = new THREE.Vector3(state[0], state[2], state[1]).multiplyScalar(scale);
+        trajectory_points.push(p);
+    }
+
+    // Convert points to flat array Float32Array for BufferGeometry
+    // ------------------------------------------------------------
+    const positions = new Float32Array(trajectory_points.length * 3);
+    const tvals = new Float32Array(trajectory_points.length); // per vertex attribute, normalized to 0..1 along trajectory
+
+    for (let i = 0; i < trajectory_points .length; i++) {
+        const p = trajectory_points[i];
+        const index = i * 3;
+
+        positions[index + 0] = p.x;
+        positions[index + 1] = p.y;
+        positions[index + 2] = p.z;
+
+        tvals[i] = i / (trajectory_points.length - 1);
+    }
+
+    return {
+        positions: positions,
+        tvals: tvals,
+    };
+}
+
+function rebuildTrajectory() {
+    const result = computeTrajectory();
+
+    geom.setAttribute("position", new THREE.BufferAttribute(result.positions, 3));
+
+    geom.setAttribute("a_t", new THREE.BufferAttribute(result.tvals, 1));
+
+    geom.computeBoundingSphere();
+
+    drawCount = 2;
+    revealStartTime = performance.now();
+
+    geom.setDrawRange(0, drawCount);
+
+    uniforms.u_headT.value = 0.0;
+}
+
+function restartSimulation() {
+    rebuildTrajectory();
+}
+
+
+// Preset helpers
+// ------------------------------------------------------------
+
+function applyPreset(name) {
+    const def = ATTRACTORS[name];
+
+    settings.x0 = def.initial[0];
+    settings.y0 = def.initial[1];
+    settings.z0 = def.initial[2];
+
+    settings.dt = def.dt;
+    settings.T = def.T;
+    settings.scale = def.scale;
+
+    rebuildTrajectory();
+    updateGuiDisplay();
+}
+
+// GUI
+// ------------------------------------------------------------
+
+let gui;
+const guiControllers = [];
+
+function trackController(controller) {
+    guiControllers.push(controller);
+    return controller;
+}
+
+function updateGuiDisplay() {
+    for (let i = 0; i < guiControllers.length; i++) {
+        guiControllers[i].updateDisplay();
+    }
+}
+
+function setupGUI() {
+    gui = new GUI({
+        title: "Attractor Controls",
+    });
+
+    trackController(
+        gui
+            .add(settings, "attractor", Object.keys(ATTRACTORS))
+            .name("ODE System")
+            .onChange(function (value) {
+                applyPreset(value);
+            })
+    );
+
+    gui.add(settings, "restart").name("Restart Simulation");
+
+    const initialFolder = gui.addFolder("Initial Values");
+
+    trackController(
+        initialFolder
+            .add(settings, "x0", -5, 5, 0.001)
+            .name("x0")
+            .onFinishChange(rebuildTrajectory)
+    );
+
+    trackController(
+        initialFolder
+            .add(settings, "y0", -5, 5, 0.001)
+            .name("y0")
+            .onFinishChange(rebuildTrajectory)
+    );
+
+    trackController(
+        initialFolder
+            .add(settings, "z0", -5, 5, 0.001)
+            .name("z0")
+            .onFinishChange(rebuildTrajectory)
+    );
+
+    const simulationFolder = gui.addFolder("Simulation");
+
+    trackController(
+        simulationFolder
+            .add(settings, "dt", 0.001, 0.05, 0.001)
+            .name("dt")
+            .onFinishChange(rebuildTrajectory)
+    );
+
+    trackController(
+        simulationFolder
+            .add(settings, "T", 10, 1000, 1)
+            .name("Total Time")
+            .onFinishChange(rebuildTrajectory)
+    );
+
+    trackController(
+        simulationFolder
+            .add(settings, "scale", 0.05, 10, 0.05)
+            .name("Scale")
+            .onFinishChange(rebuildTrajectory)
+    );
+
+    trackController(
+        simulationFolder
+            .add(settings, "pointsPerSecond", 0.1, 20, 0.1)
+            .name("Draw Speed")
+    );
+
+    const visualFolder = gui.addFolder("Visuals");
+
+    trackController(
+        visualFolder
+            .add(settings, "trail", 0.05, 1.0, 0.01)
+            .name("Trail")
+            .onChange(function (value) {
+                uniforms.u_trail.value = value;
+            })
+    );
+
+    trackController(
+        visualFolder
+            .add(settings, "band", 0.0005, 0.05, 0.0005)
+            .name("Glow Band")
+            .onChange(function (value) {
+                uniforms.u_band.value = value;
+            })
+    );
+
+    trackController(
+        visualFolder
+            .add(settings, "intensity", 0.1, 5.0, 0.1)
+            .name("Glow Intensity")
+            .onChange(function (value) {
+                uniforms.u_intensity.value = value;
+            })
+    );
+
+    initialFolder.open();
+    simulationFolder.open();
+}
+
+
+
+
 
 // Animation
 // ------------------------------------------------------------
-let drawCount = 2;
-
-const startT = performance.now();
-const pointsPerSecond = 0.8; // slower/faster: 80..600
 
 function animate(t) {
     requestAnimationFrame(animate);
 
-    //uniforms.u_time.value = performance.now() * 0.001;
-
     // reveal the line progressively
-    const elapsed = (t - startT) * 0.001; // seconds since start
-    drawCount = Math.min(drawCount + Math.floor(elapsed * pointsPerSecond), trajectory_points.length);
+    const elapsed = (t - revealStartTime) * 0.001; // seconds since start
+    drawCount = Math.min(drawCount + Math.floor(elapsed * settings.pointsPerSecond), trajectory_points.length);
     geom.setDrawRange(0, drawCount);
 
     // head index is drawCount-1
@@ -233,5 +501,21 @@ function animate(t) {
     renderer.render(scene, camera);
 }
 
+// Resize
+// ------------------------------------------------------------
+
+window.addEventListener("resize", function () {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+});
+
+// Init
+// ------------------------------------------------------------
+
+setupGUI();
+rebuildTrajectory();
 requestAnimationFrame(animate);
 
