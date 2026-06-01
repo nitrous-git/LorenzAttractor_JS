@@ -56,6 +56,7 @@ const ATTRACTORS = {
         dt: 0.01,
         T: 600,
         scale: 3,
+        maxPointsPerFrame : 13,
 
         cameraPosition: [0, 3, 10],
         cameraLookAt: [0, 2, 0],
@@ -91,6 +92,7 @@ const ATTRACTORS = {
         dt: 0.001,
         T: 200,
         scale: 1.8,
+        maxPointsPerFrame : 50,
 
         cameraPosition: [0, 45, 80],
         cameraLookAt: [0, 45, 0],
@@ -118,6 +120,7 @@ const ATTRACTORS = {
         dt: 0.01,
         T: 1000,
         scale: 1.6,
+        maxPointsPerFrame : 35,
 
         cameraPosition: [0, 15, 45],
         cameraLookAt: [0, 8, 0],
@@ -145,6 +148,7 @@ const ATTRACTORS = {
         dt: 0.01,
         T: 1800,
         scale: 12.0,
+        maxPointsPerFrame : 35,
 
         cameraPosition: [45, 45, 45],
         cameraLookAt: [0, 0, 0],
@@ -170,6 +174,7 @@ const ATTRACTORS = {
         dt: 0.005,
         T: 250,
         scale: 5.0,
+        maxPointsPerFrame : 25,
 
         cameraPosition: [45, 45, 45],
         cameraLookAt: [0, 0, 0],
@@ -195,6 +200,7 @@ const ATTRACTORS = {
         dt: 0.005,
         T: 900,
         scale: 2.0,
+        maxPointsPerFrame : 30,
 
         cameraPosition: [60, 45, 25],
         cameraLookAt: [2, 5, 0],
@@ -224,6 +230,7 @@ const ATTRACTORS = {
         dt: 0.01,
         T: 300,
         scale: 3,
+        maxPointsPerFrame : 30,
 
         cameraPosition: [0, 0, 5],
         cameraLookAt: [0, 0, 0],
@@ -260,6 +267,7 @@ const settings = {
     scale: 3,
 
     pointsPerSecond: 3.0,
+    maxPointsPerFrame : 3.0,
 
     trail: 0.7,
     band: 0.005,
@@ -475,6 +483,9 @@ function applyPreset(name) {
 }
 
 function applyCameraPreset(def) {
+
+    settings.maxPointsPerFrame = def.maxPointsPerFrame;
+
     camera.position.set(
         def.cameraPosition[0],
         def.cameraPosition[1],
@@ -555,14 +566,14 @@ function setupGUI() {
 
     trackController(
         simulationFolder
-            .add(settings, "T", 10, 1000, 1)
+            .add(settings, "T", 10, 3000, 1)
             .name("Total Time")
             .onFinishChange(rebuildTrajectory)
     );
 
     trackController(
         simulationFolder
-            .add(settings, "scale", 0.05, 10, 0.05)
+            .add(settings, "scale", 0.05, 18, 0.05)
             .name("Scale")
             .onFinishChange(rebuildTrajectory)
     );
@@ -586,17 +597,8 @@ function setupGUI() {
 
     trackController(
         visualFolder
-            .add(settings, "band", 0.0005, 0.05, 0.0005)
-            .name("Glow Band")
-            .onChange(function (value) {
-                uniforms.u_band.value = value;
-            })
-    );
-
-    trackController(
-        visualFolder
             .add(settings, "intensity", 0.1, 5.0, 0.1)
-            .name("Glow Intensity")
+            .name("Trail Length")
             .onChange(function (value) {
                 uniforms.u_intensity.value = value;
             })
@@ -618,7 +620,10 @@ function animate(t) {
 
     // reveal the line progressively
     const elapsed = (t - revealStartTime) * 0.001; // seconds since start
-    drawCount = Math.min(drawCount + Math.floor(elapsed * settings.pointsPerSecond), trajectory_points.length);
+
+    const pointsThisFrame = Math.min(Math.floor(elapsed * settings.pointsPerSecond), settings.maxPointsPerFrame);
+
+    drawCount = Math.min(drawCount + pointsThisFrame, trajectory_points.length);
     geom.setDrawRange(0, drawCount);
 
     // head index is drawCount-1
@@ -646,4 +651,3 @@ setupGUI();
 applyCameraPreset(ATTRACTORS[settings.attractor]);
 rebuildTrajectory();
 requestAnimationFrame(animate);
-
